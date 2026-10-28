@@ -1,4 +1,4 @@
-A data-structure that can be de-serialized from binary format by NBOR, like
+A data-structure that can be deserialized from Borsh, like
 [`BorshDeserialize`](crate::BorshDeserialize), while charging a memory budget.
 
 Use it to decode untrusted input with a memory limit. The encoding is the same as for
@@ -74,7 +74,7 @@ use borsh::{from_slice_bounded, to_vec, BorshDeserializeBounded, BorshSerialize,
 
 fn charged<T: BorshSerialize + BorshDeserializeBounded>(value: &T) -> usize {
     let input = to_vec(value).unwrap();
-    let mut budget = Budget::new(1 << 20);
+    let mut budget = Budget::new(1_000_000);
     from_slice_bounded::<T>(&input, &mut budget).unwrap();
     budget.used()
 }

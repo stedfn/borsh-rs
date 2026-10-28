@@ -3,7 +3,8 @@ use core::fmt;
 
 use crate::io::{Error, ErrorKind, Result};
 
-/// The memory that bounded decoding may still charge.
+/// Memory budget available for deserialization. Decoding charges the value it returns and
+/// every allocation against it.
 ///
 /// To share one limit across several values, pass the same budget to each decode: to each
 /// [`from_slice_bounded`](crate::from_slice_bounded) call, or to
