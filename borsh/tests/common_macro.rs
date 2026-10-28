@@ -267,6 +267,11 @@ mod bounded_helpers {
             let bounded = borsh::from_slice_bounded::<T>(input, &mut Budget::new(PARITY_LIMIT));
             check(input, "from_slice", plain, bounded);
 
+            // No limit: a false length must not make the decoder allocate more than plain.
+            let plain = borsh::from_slice::<T>(input);
+            let bounded = borsh::from_slice_bounded::<T>(input, &mut Budget::new(usize::MAX));
+            check(input, "from_slice without a limit", plain, bounded);
+
             let plain = borsh::from_reader::<_, T>(&mut &input[..]);
             let bounded =
                 borsh::from_reader_bounded::<_, T>(&mut &input[..], &mut Budget::new(PARITY_LIMIT));

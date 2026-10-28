@@ -2,7 +2,7 @@
 //! with the same reads, checks and constructors. Keep the twins in sync;
 //! `assert_bounded_parity` in the tests catches drift.
 
-use core::convert::{TryFrom, TryInto};
+use core::convert::TryFrom;
 use core::mem::{size_of, size_of_val};
 
 use crate::__private::maybestd::{
@@ -14,7 +14,7 @@ use crate::__private::maybestd::{
 use crate::error::check_zst;
 use crate::io::{Error, ErrorKind, Read, Result};
 
-use super::{BorshDeserialize, ERROR_NOT_ALL_BYTES_READ, ERROR_UNEXPECTED_LENGTH_OF_INPUT};
+use super::{BorshDeserialize, ERROR_NOT_ALL_BYTES_READ};
 
 mod budget;
 mod size;
@@ -83,9 +83,14 @@ where
     if let Some(vec) = T::vec_from_reader_bounded(len, reader)? {
         return Ok(vec);
     }
-    let mut result = Vec::with_capacity(n);
+    // Grows like plain decoding but stops at `n`: a false length allocates no more than plain.
+    let mut result = Vec::with_capacity(super::hint::cautious::<T>(len));
     for _ in 0..len {
-        result.push(T::deserialize_bounded(reader, budget)?);
+        let value = T::deserialize_bounded(reader, budget)?;
+        if result.len() == result.capacity() {
+            result.reserve_exact(result.capacity().min(n - result.len()));
+        }
+        result.push(value);
     }
     Ok(result)
 }
@@ -152,29 +157,7 @@ impl BorshDeserializeBounded for u8 {
     #[inline]
     #[doc(hidden)]
     fn vec_from_reader_bounded<R: Read>(len: u32, reader: &mut R) -> Result<Option<Vec<Self>>> {
-        let len: usize = len.try_into().map_err(|_| ErrorKind::InvalidData)?;
-        // Same reads as `<u8 as BorshDeserialize>::vec_from_reader`, but the vector has the
-        // charged capacity from the start.
-        let mut vec = Vec::with_capacity(len);
-        vec.resize(len.min(1024 * 1024), 0);
-        let mut pos = 0;
-        while pos < len {
-            if pos == vec.len() {
-                vec.resize(vec.len().saturating_mul(2).min(len), 0)
-            }
-            match reader.read(&mut vec.as_mut_slice()[pos..])? {
-                0 => {
-                    return Err(Error::new(
-                        ErrorKind::InvalidData,
-                        ERROR_UNEXPECTED_LENGTH_OF_INPUT,
-                    ))
-                }
-                read => {
-                    pos += read;
-                }
-            }
-        }
-        Ok(Some(vec))
+        <u8 as BorshDeserialize>::vec_from_reader(len, reader)
     }
 }
 
@@ -344,6 +327,26 @@ mod tests {
                 run(|budget| from_reader_bounded::<_, Vec<u8>>(&mut &input[..], budget))
             );
         }
+    }
+
+    #[test]
+    fn vectors_end_at_their_charged_capacity() {
+        fn encoded(len: usize, element_size: usize) -> Vec<u8> {
+            let mut input = Vec::from((len as u32).to_le_bytes());
+            input.resize(4 + len * element_size, 7);
+            input
+        }
+        // Past the cautious start of 512 `u64`s, and past two 1 MiB steps of bytes.
+        let mut budget = Budget::new(usize::MAX);
+        let numbers = from_slice_bounded::<Vec<u64>>(&encoded(1000, 8), &mut budget).unwrap();
+        assert_eq!((numbers.len(), numbers.capacity()), (1000, 1000));
+        assert_eq!(budget.used(), size_of::<Vec<u64>>() + 8000);
+
+        let len = 2 * 1024 * 1024 + 1;
+        let mut budget = Budget::new(usize::MAX);
+        let bytes = from_slice_bounded::<Vec<u8>>(&encoded(len, 1), &mut budget).unwrap();
+        assert_eq!((bytes.len(), bytes.capacity()), (len, len));
+        assert_eq!(budget.used(), size_of::<Vec<u8>>() + len);
     }
 
     #[test]

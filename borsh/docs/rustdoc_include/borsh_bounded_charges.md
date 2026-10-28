@@ -33,13 +33,13 @@ decoding is unchanged.
 
 # Allocation
 
-- **Exact, up front.** Once a length is charged, the decoder allocates room for exactly
-  that many elements. A decoded `Vec` or `String` therefore has its capacity
-  equal to its length, where plain decoding may leave more capacity. The values are equal
-  either way.
-- **The limit is also the largest buffer.** A false length prefix within the budget makes
-  the decoder allocate up to the remaining budget before the input runs out and decoding
-  fails as truncated input. Pick a limit the process can actually provide.
+- **Grown, ending exact.** A buffer starts small, as with plain decoding, and grows as
+  elements arrive, ending at exactly the charged length. A decoded `Vec` or `String`
+  therefore has its capacity equal to its length, where plain decoding may leave more
+  capacity. The values are equal either way.
+- **A false length costs no more than plain decoding.** A length prefix within the budget
+  that the input does not back allocates no more than plain decoding does before decoding
+  fails as truncated input.
 - **Allocation failure aborts**, as with plain decoding.
 
 # Guarantees
@@ -58,7 +58,8 @@ A successful `from_slice_bounded` or `from_reader_bounded` call charges `size_of
 plus the allocation charges below.
 
 `n` is the number of elements read from the length prefix. Collections charge nothing for
-`n = 0`. A charge is exact when it equals the bytes the decoder asks the allocator for.
+`n = 0`. A charge is exact when it equals the size of the allocation the decoded value ends
+up with.
 
 | Type | Allocation charge | Exactness |
 |---|---|---|
