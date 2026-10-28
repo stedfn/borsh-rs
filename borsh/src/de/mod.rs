@@ -172,7 +172,9 @@ impl BorshDeserialize for u8 {
         let mut pos = 0;
         while pos < len {
             if pos == vec.len() {
-                vec.resize(vec.len().saturating_mul(2).min(len), 0)
+                let new_len = vec.len().saturating_mul(2).min(len);
+                vec.reserve_exact(new_len - vec.len());
+                vec.resize(new_len, 0)
             }
             // TODO(mina86): Convert this to read_buf once that stabilises.
             match reader.read(&mut vec.as_mut_slice()[pos..])? {
