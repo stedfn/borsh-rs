@@ -144,15 +144,15 @@ pub mod schema_imports {
     pub use borsh::{schema_container_of, BorshSchema};
 }
 
-#[cfg(bounded)]
+#[cfg(feature = "unstable__bounded")]
 pub use bounded_helpers::*;
 
 /// A no-op without `unstable__bounded`, so the fixtures can call it unconditionally.
-#[cfg(not(bounded))]
+#[cfg(not(feature = "unstable__bounded"))]
 #[allow(unused)]
 pub fn assert_bounded_parity<T>(_buf: &[u8]) {}
 
-#[cfg(bounded)]
+#[cfg(feature = "unstable__bounded")]
 #[allow(unused)]
 mod bounded_helpers {
     // Cargo also builds this file as a test target of its own, without `tests.rs`.

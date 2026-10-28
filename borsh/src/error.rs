@@ -9,5 +9,5 @@ pub(crate) fn check_zst<T>() -> Result<()> {
     Ok(())
 }
 
-#[cfg(bounded)]
+#[cfg(feature = "unstable__bounded")]
 pub use crate::de::bounded::LimitExceeded;

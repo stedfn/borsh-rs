@@ -21,11 +21,11 @@ use crate::io::{Error, ErrorKind, Read, Result};
 
 use crate::error::check_zst;
 
-#[cfg(bounded)]
+#[cfg(feature = "unstable__bounded")]
 pub(crate) mod bounded;
 mod hint;
 
-#[cfg(bounded)]
+#[cfg(feature = "unstable__bounded")]
 pub use bounded::{
     from_reader_bounded, from_slice_bounded, BorshDeserializeBounded, Budget, EnumExtBounded,
 };

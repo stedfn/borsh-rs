@@ -34,7 +34,7 @@ fn test_to_writer() {
     assert_eq!(value, deserialized);
 }
 
-#[cfg(bounded)]
+#[cfg(feature = "unstable__bounded")]
 #[test]
 fn test_from_slice_bounded() {
     use borsh::{from_reader_bounded, from_slice_bounded, BorshDeserializeBounded, Budget};

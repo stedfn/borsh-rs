@@ -120,7 +120,7 @@ mod schema {
 }
 
 #[rustfmt::skip]
-#[cfg(bounded)]
+#[cfg(feature = "unstable__bounded")]
 mod bounded {
     mod cases;
     mod test_box;
