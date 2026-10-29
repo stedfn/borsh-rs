@@ -43,13 +43,13 @@ fn test_from_slice_bounded() {
     use borsh::{de::EnumExtBounded, error::LimitExceeded};
 
     let serialized = borsh::to_vec(&42u64).unwrap();
-    // The entry points charge the `u64` itself; `deserialize_bounded` does not.
+    // The entry points charge the `u64` itself; `deserialize_bounded_alloc` does not.
     let deserialized = from_slice_bounded::<u64>(&serialized, &mut Budget::new(8)).unwrap();
     assert_eq!(deserialized, 42u64);
     let deserialized =
         from_reader_bounded::<_, u64>(&mut serialized.as_slice(), &mut Budget::new(8)).unwrap();
     assert_eq!(deserialized, 42u64);
-    let deserialized = <u64 as BorshDeserializeBounded>::deserialize_bounded(
+    let deserialized = <u64 as BorshDeserializeBounded>::deserialize_bounded_alloc(
         &mut &serialized[..],
         &mut Budget::new(0),
     )

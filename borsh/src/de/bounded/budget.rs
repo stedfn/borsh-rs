@@ -8,8 +8,8 @@ use crate::io::{Error, ErrorKind, Result};
 ///
 /// To share one limit across several values, pass the same budget to each decode: to each
 /// [`from_slice_bounded`](crate::from_slice_bounded) call, or to
-/// [`deserialize_bounded`](crate::BorshDeserializeBounded::deserialize_bounded) for values
-/// that follow each other in one reader. A failed decode keeps the charges it made.
+/// [`deserialize_bounded_alloc`](crate::BorshDeserializeBounded::deserialize_bounded_alloc)
+/// for values that follow each other in one reader. A failed decode keeps the charges it made.
 ///
 /// ```
 /// use borsh::{BorshDeserializeBounded, Budget};
@@ -17,10 +17,10 @@ use crate::io::{Error, ErrorKind, Result};
 /// let input = borsh::to_vec(&(vec![1u32, 2, 3], String::from("abc"))).unwrap();
 /// let mut reader = &input[..];
 /// let mut budget = Budget::new(64);
-/// let numbers = Vec::<u32>::deserialize_bounded(&mut reader, &mut budget).unwrap();
-/// let text = String::deserialize_bounded(&mut reader, &mut budget).unwrap();
+/// let numbers = Vec::<u32>::deserialize_bounded_alloc(&mut reader, &mut budget).unwrap();
+/// let text = String::deserialize_bounded_alloc(&mut reader, &mut budget).unwrap();
 /// assert_eq!((numbers, text.as_str()), (vec![1, 2, 3], "abc"));
-/// // `deserialize_bounded` charges only the allocations.
+/// // `deserialize_bounded_alloc` charges only the allocations.
 /// assert_eq!(budget.used(), 12 + 3);
 /// ```
 #[derive(Debug)]

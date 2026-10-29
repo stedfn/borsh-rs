@@ -25,7 +25,7 @@ pub use budget::{Budget, LimitExceeded};
 pub trait BorshDeserializeBounded: Sized {
     /// Deserializes this instance from a reader, charging `budget` before every allocation.
     /// `size_of::<Self>()` is charged by the entry points, or by the allocation that holds it.
-    fn deserialize_bounded<R: Read>(reader: &mut R, budget: &mut Budget) -> Result<Self>;
+    fn deserialize_bounded_alloc<R: Read>(reader: &mut R, budget: &mut Budget) -> Result<Self>;
 
     /// Same as [`from_slice_bounded`].
     fn try_from_slice_bounded(v: &[u8], budget: &mut Budget) -> Result<Self> {
@@ -50,10 +50,10 @@ pub trait BorshDeserializeBounded: Sized {
 /// Bounded counterpart of [`EnumExt`](crate::de::EnumExt).
 pub trait EnumExtBounded: BorshDeserializeBounded {
     /// Decodes the variant for an already read `tag`, charging `budget` like
-    /// [`deserialize_bounded`](BorshDeserializeBounded::deserialize_bounded). Like
+    /// [`deserialize_bounded_alloc`](BorshDeserializeBounded::deserialize_bounded_alloc). Like
     /// [`EnumExt::deserialize_variant`](crate::de::EnumExt::deserialize_variant), it lets an
     /// impl check the tag before the fields are decoded.
-    fn deserialize_variant_bounded<R: Read>(
+    fn deserialize_variant_bounded_alloc<R: Read>(
         reader: &mut R,
         tag: u8,
         budget: &mut Budget,
@@ -72,7 +72,7 @@ where
 {
     check_zst::<T>()?;
 
-    let len = u32::deserialize_bounded(reader, budget)?;
+    let len = u32::deserialize_bounded_alloc(reader, budget)?;
     if len == 0 {
         return Ok(Vec::new());
     }
@@ -86,7 +86,7 @@ where
     // Grows like plain decoding but stops at `n`: a false length allocates no more than plain.
     let mut result = Vec::with_capacity(super::hint::cautious::<T>(len));
     for _ in 0..len {
-        let value = T::deserialize_bounded(reader, budget)?;
+        let value = T::deserialize_bounded_alloc(reader, budget)?;
         if result.len() == result.capacity() {
             result.reserve_exact(result.capacity().min(n - result.len()));
         }
@@ -101,7 +101,7 @@ macro_rules! impl_bounded_via_plain {
         $(
             impl $crate::de::BorshDeserializeBounded for $type {
                 #[inline]
-                fn deserialize_bounded<R: $crate::io::Read>(
+                fn deserialize_bounded_alloc<R: $crate::io::Read>(
                     reader: &mut R,
                     _budget: &mut $crate::de::Budget,
                 ) -> $crate::io::Result<Self> {
@@ -150,7 +150,7 @@ impl_bounded_via_plain!(
 
 impl BorshDeserializeBounded for u8 {
     #[inline]
-    fn deserialize_bounded<R: Read>(reader: &mut R, _budget: &mut Budget) -> Result<Self> {
+    fn deserialize_bounded_alloc<R: Read>(reader: &mut R, _budget: &mut Budget) -> Result<Self> {
         <u8 as BorshDeserialize>::deserialize_reader(reader)
     }
 
@@ -163,8 +163,8 @@ impl BorshDeserializeBounded for u8 {
 
 impl BorshDeserializeBounded for String {
     #[inline]
-    fn deserialize_bounded<R: Read>(reader: &mut R, budget: &mut Budget) -> Result<Self> {
-        String::from_utf8(Vec::<u8>::deserialize_bounded(reader, budget)?).map_err(|err| {
+    fn deserialize_bounded_alloc<R: Read>(reader: &mut R, budget: &mut Budget) -> Result<Self> {
+        String::from_utf8(Vec::<u8>::deserialize_bounded_alloc(reader, budget)?).map_err(|err| {
             let msg = err.to_string();
             Error::new(ErrorKind::InvalidData, msg)
         })
@@ -175,7 +175,7 @@ where
     T: BorshDeserializeBounded,
 {
     #[inline]
-    fn deserialize_bounded<R: Read>(reader: &mut R, budget: &mut Budget) -> Result<Self> {
+    fn deserialize_bounded_alloc<R: Read>(reader: &mut R, budget: &mut Budget) -> Result<Self> {
         decode_seq(reader, budget, size::none)
     }
 }
@@ -186,8 +186,8 @@ where
     T: ToOwned<Owned = U> + ?Sized,
     T::Owned: BorshDeserializeBounded,
 {
-    fn deserialize_bounded<R: Read>(reader: &mut R, budget: &mut Budget) -> Result<Self> {
-        let owned = T::Owned::deserialize_bounded(reader, budget)?;
+    fn deserialize_bounded_alloc<R: Read>(reader: &mut R, budget: &mut Budget) -> Result<Self> {
+        let owned = T::Owned::deserialize_bounded_alloc(reader, budget)?;
         // Charges the box of a sized `T`; the box of an unsized one reuses the buffer `owned`
         // was charged for. On stable Rust only sized types have thin pointers.
         if size_of::<*const T>() == size_of::<*const ()>() {
@@ -220,7 +220,7 @@ where
 pub fn from_slice_bounded<T: BorshDeserializeBounded>(v: &[u8], budget: &mut Budget) -> Result<T> {
     budget.charge(size_of::<T>())?;
     let mut v_mut = v;
-    let object = T::deserialize_bounded(&mut v_mut, budget)?;
+    let object = T::deserialize_bounded_alloc(&mut v_mut, budget)?;
     if !v_mut.is_empty() {
         return Err(Error::new(ErrorKind::InvalidData, ERROR_NOT_ALL_BYTES_READ));
     }
@@ -245,7 +245,7 @@ pub fn from_reader_bounded<R: Read, T: BorshDeserializeBounded>(
     budget: &mut Budget,
 ) -> Result<T> {
     budget.charge(size_of::<T>())?;
-    let result = T::deserialize_bounded(reader, budget)?;
+    let result = T::deserialize_bounded_alloc(reader, budget)?;
     let mut buf = [0u8; 1];
     match reader.read_exact(&mut buf) {
         Err(f) if f.kind() == ErrorKind::UnexpectedEof => Ok(result),

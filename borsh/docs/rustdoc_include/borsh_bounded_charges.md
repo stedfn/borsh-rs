@@ -90,8 +90,8 @@ assert_eq!(charged(&vec![0u64; 1000]), 8000 + 24);
 - stack used while decoding (temporaries, recursion depth);
 - allocations of `#[borsh(init)]` functions and of `Default` values of skipped fields;
 - allocations inside hand-written implementations, unless they charge for them or decode
-  their parts with `deserialize_bounded`; plain `BorshDeserialize` calls made from there are
-  not charged either;
+  their parts with `deserialize_bounded_alloc`; plain `BorshDeserialize` calls made from
+  there are not charged either;
 - allocations made by a custom conversion from `T::Owned` into `Box<T>`;
 - error values, reader buffers and allocator overhead.
 
@@ -106,7 +106,7 @@ assert_eq!(charged(&vec![0u64; 1000]), 8000 + 24);
 
 # Writing an implementation by hand
 
-Decode each part with its `deserialize_bounded`, and call
+Decode each part with its `deserialize_bounded_alloc`, and call
 [`Budget::charge`](crate::de::Budget::charge) or
 [`Budget::charge_array`](crate::de::Budget::charge_array) before an allocation you make
 yourself. Use [`EnumExtBounded`](crate::de::EnumExtBounded) to dispatch on a tag you have
@@ -130,8 +130,8 @@ struct Name {
 }
 
 impl BorshDeserializeBounded for Name {
-    fn deserialize_bounded<R: Read>(reader: &mut R, budget: &mut Budget) -> Result<Self> {
-        let original = String::deserialize_bounded(reader, budget)?;
+    fn deserialize_bounded_alloc<R: Read>(reader: &mut R, budget: &mut Budget) -> Result<Self> {
+        let original = String::deserialize_bounded_alloc(reader, budget)?;
         // `to_ascii_lowercase` allocates `original.len()` bytes.
         budget.charge(original.len())?;
         let lowercase = original.to_ascii_lowercase();
